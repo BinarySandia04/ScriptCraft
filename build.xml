@@ -8,6 +8,8 @@
        * Spigot (which is bukkit-compatible)
   -->
   <property name="src.canary" location="src/main/java/canary"/>
+  <property name="lib.rhino" location="lib/rhino-1.7.15.jar"/>
+  <property name="src.common" location="src/main/java/common"/>
   <property name="src.bukkit" location="src/main/java/bukkit"/>
 
   <!-- compiles against these libraries -->
@@ -56,20 +58,30 @@
     <available file="${dist}/js/modules/babel.js" property="babel.present"/>
   </target>
 
-  <target name="test" depends="package" description="Perform unit tests">
-    
+  <target name="test" depends="compile-plugins" description="Test instruction limits (with a timeout)">
+    <mkdir dir="target/test-classes"/>
+    <javac srcdir="src/test/java" destdir="target/test-classes"
+           source="1.8" target="1.8" includeantruntime="false">
+      <classpath path="${build}:${lib.rhino}"/>
+    </javac>
+    <java classname="org.scriptcraftjs.InstructionLimitTest" fork="true"
+          failonerror="true" timeout="20000">
+      <classpath path="target/test-classes:${build}:${lib.rhino}:${lib.bukkit}"/>
+    </java>
   </target>
 
 
   <target name="compile-plugins" depends="init" description="compile canary plugin source">
     <javac includeantruntime="false" 
-           source="1.6" 
-           target="1.6" 
+           source="1.8"
+           target="1.8"
            destdir="${build}" 
            debug="true">
+      <src path="${src.common}"/>
       <src path="${src.canary}"/>
       <src path="${src.bukkit}"/>
       <classpath>
+	<pathelement path="${lib.rhino}" />
 	<pathelement path="${lib.canary}" />
 	<pathelement path="${lib.bukkit}" />
       </classpath>
@@ -272,7 +284,9 @@ Walter Higgins
     <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
     <mkdir dir="${dist}/${DSTAMP}" />
     
-    <jar jarfile="${dist}/${DSTAMP}/scriptcraft.jar" basedir="${build}"/>
+    <jar jarfile="${dist}/${DSTAMP}/scriptcraft.jar" basedir="${build}">
+      <zipfileset src="${lib.rhino}" excludes="META-INF/MANIFEST.MF"/>
+    </jar>
     <copy file="${dist}/${DSTAMP}/scriptcraft.jar" tofile="${dist}/scriptcraft.jar"/>
   </target>
 

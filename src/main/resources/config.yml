@@ -2,3 +2,7 @@ extract-js:
   plugins: true
   modules: true
   lib: true  
+
+# Maximum wall-clock execution time per command, event callback, or script execution.
+# Must be positive. Changes take effect when the plugin restarts.
+max-execution-ms: 2000

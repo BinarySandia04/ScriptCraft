@@ -3,10 +3,10 @@ var bkEventPriority = org.bukkit.event.EventPriority,
   bkHandlerList = org.bukkit.event.HandlerList,
   bkPluginManager = org.bukkit.Bukkit.pluginManager;
 
-// Ask Nashorn to generate a class implementing the Listener
-// interface, so that we may instantiate it to tag our event
-// handlers.
-var ScriptCraftListener = Java.extend(org.bukkit.event.Listener, {});
+// Generate a marker Listener on either supported JavaScript engine.
+var ScriptCraftListener = typeof Java !== 'undefined'
+  ? Java.extend(org.bukkit.event.Listener, {})
+  : null;
 
 exports.on = function(
   /* Java Class */
@@ -43,7 +43,9 @@ exports.on = function(
   };
 
   // Create an instance of our empty Listener implementation to track the handler
-  var listener = new ScriptCraftListener();
+  var listener = typeof Java !== 'undefined'
+    ? new ScriptCraftListener()
+    : new JavaAdapter(org.bukkit.event.Listener, {});
 
   bkPluginManager.registerEvent(
     eventType.class,

@@ -2,12 +2,12 @@ package org.scriptcraftjs.bukkit;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.ChatColor;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
 import java.io.InputStreamReader;
+import org.scriptcraftjs.LimitedJavaScriptEngine;
+import org.scriptcraftjs.LimitedJavaScriptEngine.InstructionLimitExceeded;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,7 +19,7 @@ public class ScriptCraftPlugin extends JavaPlugin
     // need to look at possibly having context/scope per operator
     //protected Map<CommandSender,ScriptCraftEvaluator> playerContexts = new HashMap<CommandSender,ScriptCraftEvaluator>();
     private String NO_JAVASCRIPT_MESSAGE = "No JavaScript Engine available. ScriptCraft will not work without Javascript.";
-    protected ScriptEngine engine = null;
+    protected LimitedJavaScriptEngine engine = null;
 
     @Override public void onEnable()
     {
@@ -27,16 +27,22 @@ public class ScriptCraftPlugin extends JavaPlugin
         ClassLoader previousClassLoader = currentThread.getContextClassLoader();
         currentThread.setContextClassLoader(getClassLoader());
         try {
-            ScriptEngineManager factory = new ScriptEngineManager(null);
-            this.engine = factory.getEngineByName("JavaScript");
+            this.engine = new LimitedJavaScriptEngine(
+                getConfig().getLong("max-execution-ms", LimitedJavaScriptEngine.DEFAULT_MAX_EXECUTION_MILLIS),
+                getClassLoader());
             if (this.engine == null) {
                 this.getLogger().severe(NO_JAVASCRIPT_MESSAGE);
             } else {
-                Invocable inv = (Invocable) this.engine;
-                this.engine.eval(new InputStreamReader(this.getResource("boot.js")));
-                inv.invokeFunction("__scboot", this, engine);
+                LimitedJavaScriptEngine inv = this.engine;
+                inv.setExecutionLimitEnabled(false);
+                try {
+                    this.engine.eval(new InputStreamReader(this.getResource("boot.js")));
+                    inv.invokeFunction("__scboot", this, engine);
+                } finally {
+                    inv.setExecutionLimitEnabled(true);
+                }
             }
-        } catch (Exception e) {
+        } catch (InstructionLimitExceeded | Exception e) {
             e.printStackTrace();
             this.getLogger().severe(e.getMessage());
         } finally {
@@ -54,9 +60,9 @@ public class ScriptCraftPlugin extends JavaPlugin
             return null;
         }
         try {
-            Invocable inv = (Invocable)this.engine;
+            LimitedJavaScriptEngine inv = this.engine;
             inv.invokeFunction("__onTabComplete", result, sender, cmd, alias, args);
-        } catch (Exception e) {
+        } catch (InstructionLimitExceeded | Exception e) {
             sender.sendMessage(e.getMessage());
             e.printStackTrace();
         }
@@ -72,7 +78,12 @@ public class ScriptCraftPlugin extends JavaPlugin
             return false;
         }
         try {
-            jsResult = ((Invocable)this.engine).invokeFunction("__onCommand", sender, cmd, label, args);
+            jsResult = this.engine.invokeFunction("__onCommand", sender, cmd, label, args);
+        } catch (InstructionLimitExceeded se) {
+            this.getLogger().severe(se.toString());
+            se.printStackTrace();
+            sender.sendMessage(ChatColor.RED + se.getMessage());
+            return true;
         } catch (Exception se) {
             this.getLogger().severe(se.toString());
             se.printStackTrace();

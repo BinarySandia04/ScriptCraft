@@ -334,9 +334,9 @@ function makeTypeIdAndDataSetter() {
     return null;
   }
 
-  var Block = Java.type('org.bukkit.block.Block');
+  var Block = org.bukkit.block.Block;
   if (
-    Java.from(Block.class.methods).some(function(m) {
+    Array.prototype.some.call(Block.class.methods, function(m) {
       return m.name == 'setTypeIdAndData';
     })
   ) {
@@ -346,7 +346,10 @@ function makeTypeIdAndDataSetter() {
     };
   } else {
     try {
-      var CraftEvil = Java.type(server.class.package.name + '.util.CraftEvil');
+      var CraftEvil = Packages;
+      (server.class.package.name + '.util.CraftEvil').split('.').forEach(function(part) {
+        CraftEvil = CraftEvil[part];
+      });
       console.log('Drone using CraftEvil.setTypeIdAndData method');
       return function(block, typeId, data, applyPhysics) {
         CraftEvil.setTypeIdAndData(block, typeId, data, applyPhysics);

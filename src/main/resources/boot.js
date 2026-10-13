@@ -19,7 +19,8 @@ var __scboot = null;
       fTime = 0,
       fout = null,
       c,
-      newFile;
+      newFile,
+      buffer = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, 8192);
 
     while ((entry = zis.nextEntry) != null) {
       newFile = new File(jsPlugins, entry.name);
@@ -44,8 +45,8 @@ var __scboot = null;
       if (unzipFile) {
         logger.info('Unzipping ' + newFile.canonicalPath + ' (' + reason + ')');
         fout = new FileOutputStream(newFile);
-        for (c = zis.read(); c != -1; c = zis.read()) {
-          fout.write(c);
+        for (c = zis.read(buffer); c != -1; c = zis.read(buffer)) {
+          fout.write(buffer, 0, c);
         }
         fout.close();
       }

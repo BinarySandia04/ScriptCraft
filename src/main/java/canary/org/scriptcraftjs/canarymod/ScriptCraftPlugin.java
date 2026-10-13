@@ -1,9 +1,8 @@
 package org.scriptcraftjs.canarymod;
 
 import java.io.InputStreamReader;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptEngine;
-import javax.script.Invocable;
+import org.scriptcraftjs.LimitedJavaScriptEngine;
+import org.scriptcraftjs.LimitedJavaScriptEngine.InstructionLimitExceeded;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -26,13 +25,13 @@ public class ScriptCraftPlugin extends Plugin implements PluginListener, Command
     public boolean bukkit = false;
     private String NO_JAVASCRIPT_MESSAGE = "No JavaScript Engine available. " + 
         "ScriptCraft will not work without Javascript.";
-    protected ScriptEngine engine = null;
+    protected LimitedJavaScriptEngine engine = null;
 
     @Override
     public void disable(){
         try { 
-            ((Invocable)this.engine).invokeFunction("__onDisable", this.engine, this);
-        }catch ( Exception e) {
+            this.engine.invokeFunction("__onDisable", this.engine, this);
+        }catch (InstructionLimitExceeded | Exception e) {
             this.getLogman().error(e.getMessage());
         }
     }
@@ -41,22 +40,28 @@ public class ScriptCraftPlugin extends Plugin implements PluginListener, Command
     public boolean enable()
     {
         try{
-            ScriptEngineManager factory = new ScriptEngineManager();
-            this.engine = factory.getEngineByName("JavaScript");
+            this.engine = new LimitedJavaScriptEngine(
+                Long.getLong("scriptcraft.max-execution-ms", LimitedJavaScriptEngine.DEFAULT_MAX_EXECUTION_MILLIS),
+                getClass().getClassLoader());
             if (this.engine == null){
                 this.getLogman().error(NO_JAVASCRIPT_MESSAGE);
             } else { 
-                Invocable inv = (Invocable)this.engine;
+                LimitedJavaScriptEngine inv = this.engine;
+                inv.setExecutionLimitEnabled(false);
                 //File f = new File(this.getJarPath());
-                InputStreamReader reader = new InputStreamReader(getClass()
-                                                                 .getClassLoader()
-                                                                 .getResourceAsStream("boot.js"));
-                this.engine.eval(reader);
-                inv.invokeFunction("__scboot", this, engine, getClass().getClassLoader());
+                try {
+                    InputStreamReader reader = new InputStreamReader(getClass()
+                                                                     .getClassLoader()
+                                                                     .getResourceAsStream("boot.js"));
+                    this.engine.eval(reader);
+                    inv.invokeFunction("__scboot", this, engine, getClass().getClassLoader());
+                } finally {
+                    inv.setExecutionLimitEnabled(true);
+                }
             }
 
             Canary.commands().registerCommands(this, this, false);
-        }catch(Exception e){
+        }catch(InstructionLimitExceeded | Exception e){
             e.printStackTrace();
             this.getLogman().error(e.getMessage());
         }
@@ -100,8 +105,8 @@ public class ScriptCraftPlugin extends Plugin implements PluginListener, Command
             return;
         }
         try { 
-            jsResult = ((Invocable)this.engine).invokeFunction("__onCommand", sender, args);
-        }catch (Exception se){
+            jsResult = this.engine.invokeFunction("__onCommand", sender, args);
+        }catch (InstructionLimitExceeded | Exception se){
             this.getLogman().error(se.toString());
             se.printStackTrace();
             sender.message(se.getMessage());
@@ -143,9 +148,9 @@ public class ScriptCraftPlugin extends Plugin implements PluginListener, Command
             return null;
         }
         try {
-            Invocable inv = (Invocable)this.engine;
+            LimitedJavaScriptEngine inv = this.engine;
             inv.invokeFunction("__onTabComplete", result, sender, args, cmd);
-        }catch (Exception e){
+        }catch (InstructionLimitExceeded | Exception e){
             sender.message(e.getMessage());
             e.printStackTrace();
         }

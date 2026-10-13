@@ -1,5 +1,35 @@
 # ScriptCraft - Modding Minecraft with Javascript
 
+## Execution limit in this build
+
+This build bundles Rhino 1.7.15 and counts its interpreted JavaScript instructions.
+Every top-level execution (including commands, event/timer callbacks, and startup)
+gets a fresh budget. Nested calls, `eval`, and `Function` share that budget.
+After the budget is exceeded, execution terminates and commands report
+`Script stopped: maximum execution time exceeded (...)` to the player.
+JavaScript `catch` and `finally` blocks cannot suppress this termination.
+
+For Bukkit/Spigot, set `max-execution-ms` in `plugins/scriptcraft/config.yml`
+(default `10000000`), then restart the plugin. For CanaryMod, use the JVM option
+`-Dscriptcraft.max-execution-ms=2000`. Values must be positive; allow enough
+instructions for plugin initialization as well as normal player scripts.
+
+The count is an engine instruction estimate, not source lines or CPU instructions.
+It is checked in batches of at most 1,000 instructions, so termination occurs at
+the next engine checkpoint after the limit is exceeded. Already completed world
+changes remain. A repeating task gets a new budget on each invocation.
+Blocking Java/Minecraft calls and native operations are not interrupted by this
+JavaScript counter. This is not a sandbox for hostile scripts with Java access.
+
+Rhino replaces Nashorn at runtime; custom scripts using Nashorn-specific `Java.*`
+APIs need adaptation. The bundled event and Drone modules have been adapted.
+On existing installations, keep `extract-js.lib` and `extract-js.modules` enabled
+for the upgrade so these updated modules are extracted.
+
+Build with Java 8 and Ant using `./build.sh` as before. Rhino is included in the
+resulting plugin JAR. Run `ant test` or `bash test.sh` to check termination,
+nested evaluation, callback budgets, cleanup, and recovery under a process timeout.
+
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/walterhiggins/ScriptCraft?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 
